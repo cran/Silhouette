@@ -2,29 +2,37 @@
 #'
 #' Creates a silhouette plot for visualizing the silhouette widths of clustering results, with bars colored by cluster and an optional summary of cluster statistics in legend.
 #'
-#' @param x An object of class \code{"Silhouette"}, typically the output of the \code{\link{Silhouette}} and \code{\link{softSilhouette}} function. Also supports objects classes \code{\link[factoextra]{eclust}}, \code{\link[factoextra]{hcut}}, \code{\link[cluster]{pam}}, \code{\link[cluster]{clara}}, \code{\link[cluster]{fanny}}, or \code{\link[cluster]{silhouette}} from \pkg{cluster}, \pkg{factoextra} packages. For these classes, explicitly call \code{plotSilhouette()} to generate the plot.
+#' @param x An object of class \code{"Silhouette"}, typically the output of the \code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link{dbSilhouette}} and \code{\link{cerSilhouette}} function. Also supports objects classes \code{\link[factoextra]{eclust}}, \code{\link[factoextra]{hcut}}, \code{\link[cluster]{pam}}, \code{\link[cluster]{clara}}, \code{\link[cluster]{fanny}}, \code{\link[cluster]{silhouette}}, or \code{\link[drclust]{silhouette}} from \pkg{cluster}, \pkg{factoextra}, \pkg{drclust} packages. For these classes, explicitly call \code{plotSilhouette()} to generate the plot.
 #' @param label Logical; if \code{TRUE}, the x-axis is labeled with observation row indices from the input data and titled "Row Index". Defaults to \code{FALSE}.
 #' @param summary.legend Logical; if \code{TRUE}, prints a summary of average silhouette widths and sizes for each cluster in legend ("Cluster (Size): Width"). If \code{FALSE}, the legend shows only cluster numbers. Defaults to \code{TRUE}.
 #' @param grayscale Logical; if \code{TRUE}, the plot uses a grayscale color palette for clusters. If \code{FALSE}, uses the default or specified color palette. Defaults to \code{FALSE}.
-#' @param ... Additional arguments passed to \code{\link[ggpubr]{ggpar}} for customizing the plot (e.g., \code{palette}, \code{legend}).
+#' @param linetype Character or numeric value specifying the type of line
+#'   to be used for the horizontal reference line indicating the average
+#'   silhouette width. Accepts standard ggplot2 linetype values, such as:
+#'   \itemize{
+#'     \item Character: `"solid"`, `"dashed"`, `"dotted"`, `"dotdash"`, `"longdash"`, `"twodash"`.
+#'     \item Numeric: integers from 0 to 6 corresponding to ggplot2 line patterns.
+#'   }
+#'   Defaults to `"dashed"`.
+#' @param ... Additional arguments passed to \code{\link[ggpubr]{ggpar}} for customizing the plot (e.g., \code{palette}, \code{legend}, \code{xlab}, \code{ylab}, \code{subtitle}, \code{title}).
 #'
 #' @details
 #' The Silhouette plot displays the silhouette width (\code{sil_width}) for each observation, grouped by cluster, with bars sorted by cluster and descending silhouette width. The \code{summary.legend} option adds cluster sizes and average silhouette widths to the legend.
 #'
-#' This function replica of S3 method for objects of class \code{"Silhouette"}, typically produced by the \code{\link{Silhouette}} or \code{\link{softSilhouette}} functions in this package. It also supports objects of the following classes, with silhouette information extracted from their respective component:
+#' This function replica of S3 method for objects of class \code{"Silhouette"}, typically produced by the \code{\link{Silhouette}}, \code{\link{softSilhouette}}, , \code{\link{dbSilhouette}} or , \code{\link{cerSilhouette}} functions in this package. It also supports objects of the following classes, with silhouette information extracted from their respective component:
 #' \itemize{
 #'   \item \code{"eclust"}: Produced by \code{\link[factoextra]{eclust}} from the \pkg{factoextra} package.
 #'   \item \code{"hcut"}: Produced by \code{\link[factoextra]{hcut}} from the \pkg{factoextra} package.
 #'   \item \code{"pam"}: Produced by \code{\link[cluster]{pam}} from the \pkg{cluster} package.
 #'   \item \code{"clara"}: Produced by \code{\link[cluster]{clara}} from the \pkg{cluster} package.
 #'   \item \code{"fanny"}: Produced by \code{\link[cluster]{fanny}} from the \pkg{cluster} package.
-#'   \item \code{"silhouette"}: Produced by \code{\link[cluster]{silhouette}} from the \pkg{cluster} package.
+#'   \item \code{"silhouette"}: Produced by \code{\link[cluster]{silhouette}} from the \pkg{cluster} package or \code{\link[drclust]{silhouette}} from the \pkg{drclust} package.
 #' }
 #' For these classes (\code{"eclust"}, \code{"hcut"}, \code{"pam"}, \code{"clara"}, \code{"fanny"}, \code{"silhouette"}), users should explicitly call \code{plotSilhouette()} (e.g., \code{plotSilhouette(pam_result)}) to ensure the correct method is used, as the generic \code{plot()} may not dispatch to this function for these objects.
 #'
 #' @return A \code{ggplot2} object representing the Silhouette plot.
 #'
-#' @seealso \code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link[factoextra]{eclust}}, \code{\link[factoextra]{hcut}}, \code{\link[cluster]{pam}}, \code{\link[cluster]{clara}}, \code{\link[cluster]{fanny}}, \code{\link[cluster]{silhouette}}
+#' @seealso \code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link{dbSilhouette}}, \code{\link{cerSilhouette}}, \code{\link{getSilhouette}}, \code{\link{is.Silhouette}}
 #'
 #' @references
 #' Rousseeuw, P. J. (1987). Silhouettes: A graphical aid to the interpretation and validation of cluster analysis. \emph{Journal of Computational and Applied Mathematics}, 20, 53--65. \doi{10.1016/0377-0427(87)90125-7}
@@ -95,32 +103,75 @@
 #'   hcut_result <- hcut(iris[, 1:4], k = 3)
 #'   plotSilhouette(hcut_result)
 #' }
+#'
+#' # Silhouette plot for hcut clustering
+#' if (requireNamespace("drclust", quietly = TRUE)) {
+#'   library(drclust)
+#'   iris_mat <- as.matrix(iris[,-5])
+#'   drclust_out <- dpcakm(iris_mat, 20, 3)
+#'   d <- silhouette(iris_mat, drclust_out)
+#'   plotSilhouette(d$cl.silhouette)
+#' }
 #' }
 #' @export
-#' @import dplyr ggplot2 ggpubr methods
+#' @importFrom dplyr mutate arrange %>%
+#' @importFrom ggplot2 ggplot aes geom_bar labs ylim geom_hline theme scale_fill_grey scale_color_grey scale_fill_discrete scale_color_discrete element_text
+#' @importFrom ggpubr ggpar
 plotSilhouette <- function(x,
                            label = FALSE,
                            summary.legend = TRUE,
                            grayscale = FALSE,
+                           linetype = c("dashed", "solid", "dotted", "dotdash", "longdash", "twodash"),
                            ...) {
-  # Initialize variables to NULL
   cluster <- sil_width <- original_name <- name <- NULL
 
-  if (inherits(x, "Silhouette")) {
-    df <- x
-    summary_stats <- summary(df, print.summary = FALSE)
+  if (is.Silhouette(x, strict = TRUE)) {
+    if (!is.matrix(x) && !is.data.frame(x)) {
+      stop("Silhouette object must be a matrix or data.frame")
+    }
+    if (ncol(x) < 3) {
+      stop("Silhouette object must have at least 3 columns")
+    }
+    df <- as.data.frame(x, stringsAsFactors = TRUE)
+    summary_stats <- summary(x, print.summary = FALSE)
     clus.avg.widths <- summary_stats$clus.avg.widths
     avg.width <- summary_stats$avg.width
+    average <- attr(x, "average")
+    method <- attr(x, "method")
   } else if (inherits(x, c("eclust", "hcut", "pam", "clara", "fanny"))) {
     df <- as.data.frame(x$silinfo$widths, stringsAsFactors = TRUE)
     clus.avg.widths <- x$silinfo$clus.avg.widths
     avg.width <- x$silinfo$avg.width
+    average <- "crisp"
+    method <- class(x)[1]
   } else if (inherits(x, "silhouette")) {
-    df <- as.data.frame(x[, 1:3], stringsAsFactors = TRUE)
+    if (!is.matrix(x) && !is.data.frame(x)) {
+      stop("silhouette object must be a matrix or data.frame")
+    }
+    if (ncol(x) < 3) {
+      stop("silhouette object must have at least 3 columns")
+    }
+    df <- as.data.frame(x[,1:3], stringsAsFactors = TRUE)
     clus.avg.widths <- tapply(df$sil_width, df$cluster, mean, na.rm = TRUE)
     avg.width <- mean(df$sil_width, na.rm = TRUE)
+    average <- "crisp"
+    method <- NA
+  } else if (inherits(x, c("eclust", "hcut", "pam", "clara", "fanny"))) {
+    df <- as.data.frame(x$silinfo$widths, stringsAsFactors = TRUE)
+    clus.avg.widths <- x$silinfo$clus.avg.widths
+    avg.width <- x$silinfo$avg.width
+    average <- "crisp"
+    method <- class(x)[1]
   } else {
-    stop("Don't support an object of class ", class(x))
+    stop("Don't support an object of class ", paste(class(x), collapse = " "))
+  }
+  # Allow numeric codes 1:6 OR named linetypes
+  if (is.numeric(linetype)) {
+    if (!linetype %in% 1:6) {
+      stop("If numeric, 'linetype' must be between 1 and 6.")
+    }
+  } else {
+    linetype <- match.arg(linetype)
   }
 
   # Preserve original row names before arranging
@@ -147,14 +198,21 @@ plotSilhouette <- function(x,
   line_color <- ifelse(grayscale, "black", "red")
 
   # Determine subtitle based on presence of weight column
-  subtitle_text <- if ("weight" %in% names(x)) {
-    paste0("Average Fuzzy silhouette width: ", round(avg.width, 4))
-  } else {
+  subtitle_text <- if (average == "crisp") {
     paste0("Average silhouette width: ", round(avg.width, 4))
+  } else if (average == "fuzzy") {
+    paste0("Average fuzzy silhouette width: ", round(avg.width, 4))
+  } else if (average == "median") {
+    paste0("Median silhouette width: ", round(avg.width, 4))
   }
 
   # Set x-axis label based on label parameter
   x_label <- if (label) "Row Index" else ""
+  y_label <- if (!is.na(method)) {
+    paste(method, "Silhouette Width")
+  } else {
+    "Silhouette Width"
+  }
 
   p <- ggplot2::ggplot(
     df,
@@ -167,7 +225,7 @@ plotSilhouette <- function(x,
   ) +
     ggplot2::geom_bar(stat = "identity") +
     ggplot2::labs(
-      y = "Silhouette Width",
+      y = y_label,
       x = x_label,
       title = "Clusters Silhouette Plot",
       subtitle = subtitle_text
@@ -175,7 +233,7 @@ plotSilhouette <- function(x,
     ggplot2::ylim(c(NA, 1)) +
     ggplot2::geom_hline(
       yintercept = avg.width,
-      linetype = "dashed",
+      linetype = linetype,
       color = line_color
     ) +
     ggplot2::theme(
@@ -209,6 +267,7 @@ plotSilhouette <- function(x,
   }
   return(p)
 }
+
 #' Plot method for Silhouette objects
 #'
 #' @inheritParams plotSilhouette
@@ -216,3 +275,5 @@ plotSilhouette <- function(x,
 #' @method plot Silhouette
 #' @export
 plot.Silhouette <- plotSilhouette
+
+

@@ -1,13 +1,52 @@
+# Silhouette 0.9.6 (October 2025)
+
+**New Features**
+
+- Introduced new functions: 
+
+- **`getSilhouette()`**  
+  Constructs a Silhouette class object directly from user-provided components without performing silhouette calculations. Allows users to build Silhouette objects when they already have cluster assignments, neighbor clusters, silhouette widths, and optional weights.
+
+- **`is.Silhouette()`**  
+  Tests whether an object is of class "Silhouette" with optional strict validation. Checks both class inheritance and expected structure including required columns, attributes, and value ranges.
+
+- **`cerSilhouette()`**  
+  Computes certainty silhouette widths for soft clustering using maximum posterior probabilities. Provides an alternative evaluation method for fuzzy clustering algorithms with support for crisp, fuzzy, and median averaging.
+
+- **`dbSilhouette()`**  
+  Computes density-based silhouette widths using log-ratios of posterior probabilities based on Menardi (2011) method. Offers normalized silhouette evaluation for soft clustering with enhanced discrimination between cluster assignments.
+
+- **`calSilhouette()`**  
+  Computes all available silhouette indices from the package functions and returns a comparative summary data frame. Automatically calculates crisp, fuzzy, and median silhouette values across different methods including proximity-based (medoid, pac), soft silhouette variations (pp_pac, pp_medoid, nlpp_pac, nlpp_medoid, pd_pac, pd_medoid), and probability-based methods (cer, db). Supports direct matrix input or clustering function output for streamlined comparative analysis.
+
+**Improvements**
+
+- Extended existing functions to support **median-based silhouette calculations** as an alternative to mean-based computations.
+- Added new `average` attribute for existing Silhouette class supporting "crisp", "fuzzy", and "median" options.
+- Enhanced clustering evaluation capabilities with density-based and certainty-based statistical measures.
+- Updated documentation to reflect new median calculation options and soft clustering methods.
+- Enhanced `calSilhouette()` to compute all combinations of `softSilhouette()` methods (pp, nlpp, pd) with both pac and medoid approaches, providing comprehensive comparative analysis across 11 different silhouette computation methods.
+
+## Updated Dependencies
+
+- **Imports**: `dplyr`, `ggplot2`, `ggpubr`, `lifecycle`, `methods`, `stats`  
+- **Suggests**: `proxy`, `ppclust`, `blockcluster`, `cluster`, `factoextra`, `drclust`
+
+# Silhouette 0.9.5 (August 2025)
+
+- Improved documentation:
+  - Updated `README.md` and `DESCRIPTION` fields.
+  - Fixed an example in the vignettes for clarity.
+- Added **lifecycle badges** to all exported functions.
+
 # Silhouette 0.9.4 (July 2025)
 
-- Clarified the description of the **PAC (Proportion of Ambiguous Clustering)** method in the documentation by citing the original authors (Author, Year).
+**CRAN Suggested Corrections**
 
+- Clarified the description of the **PAC (Probability of Alternative Cluster)** method in the documentation by citing the original authors (Author, Year).
 - Removed usage of `installed.packages()` from the package code and replaced it with a more robust and CRAN-compliant approach, following suggested practices.
-
 - All user-facing functions now include the argument `print.summary`, which controls whether summary details are printed. This argument behaves similarly to `if (verbose) cat(...)` and now defaults to `FALSE`.
-
 - Messages using `message()` are included in example sections to **suggest installation of optional packages** (e.g., `ppclust`, `blockcluster`). These packages are **not called directly**, but their outputs are used in examples. This is done to guide users without violating CRAN's policy on requiring packages in examples.
-
 - Removed the license file as suggested.
 
 # Silhouette 0.9.3 (July 2025)

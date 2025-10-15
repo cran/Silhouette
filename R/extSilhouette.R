@@ -1,5 +1,8 @@
 #' Calculate Extended Silhouette Width for Multi-Way Clustering
 #'
+#' @description
+#' `r lifecycle::badge('experimental')`
+#'
 #' Computes an extended silhouette width for multi-way clustering (e.g., biclustering, triclustering, or n-mode tensor clustering) by combining silhouette widths from a list of Silhouette objects, each representing one mode of clustering. The extended silhouette width is the weighted average of the average silhouette widths from each mode, weighted by the number of observations in each mode's silhouette analysis. The output is an object of class \code{extSilhouette}.
 #'
 #' @param sil_list A list of objects of class \code{"Silhouette"}, typically the output of \code{\link{Silhouette}} or \code{\link{softSilhouette}}, where each object represents the silhouette analysis for one mode of multi-way clustering (e.g., rows, columns, or other dimensions in biclustering or tensor clustering).
@@ -18,7 +21,7 @@
 #' where \eqn{n_i} is the number of observations in mode \eqn{i} (derived from \code{nrow(x$widths)}), and \eqn{w_i} is the average silhouette width for that mode (from \code{x$avg.width}).
 #' Each \code{Silhouette} object in \code{sil_list} must contain a non-empty \code{widths} data frame and a numeric \code{avg.width} value. Modes with zero observations (\eqn{n_i = 0}) are not allowed, as they would result in an undefined weighted average. For consistency make sure all \code{Silhouette} objects derived from same `method` and arguments.
 #'
-#' @seealso \code{\link{Silhouette}}, \code{\link{softSilhouette}}
+#' @seealso \code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link{dbSilhouette}}, \code{\link{cerSilhouette}}, \code{\link{getSilhouette}}, \code{\link{is.Silhouette}}
 #'
 #' @references
 #' Schepers, J., Ceulemans, E., & Van Mechelen, I. (2008). Selecting among multi-mode partitioning models of different complexities: A comparison of four model selection criteria. \emph{Journal of Classification}, 25(1), 67--85. \doi{10.1007/s00357-008-9005-9}
@@ -52,7 +55,7 @@
 #'   ext_sil <- extSilhouette(list(sil_mode1, sil_mode2),print.summary = TRUE)
 #' }
 #' }
-#'
+#' @import lifecycle
 #' @export
 extSilhouette <- function(sil_list, dim_names = NULL, print.summary = FALSE) {
   if (!all(sapply(sil_list, inherits, "Silhouette"))) {
@@ -99,7 +102,7 @@ extSilhouette <- function(sil_list, dim_names = NULL, print.summary = FALSE) {
     cat("---------------------------\n")
     cat("Extended silhouette:", round(ext_sil_width, 4), "\n")
     cat("---------------------------\n")
-    cat("\nDimension Summary:\n")
+    cat("Dimension Summary:\n")
     print(dim_table)
     cat("\nAvailable components:\n")
     print(names(result))

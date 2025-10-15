@@ -8,8 +8,9 @@ softSilhouette(
   prob_matrix,
   prob_type = c("pp", "nlpp", "pd"),
   method = c("pac", "medoid"),
-  average = c("crisp", "fuzzy"),
+  average = c("crisp", "fuzzy", "median"),
   a = 2,
+  sort = FALSE,
   print.summary = FALSE,
   clust_fun = NULL,
   ...
@@ -28,9 +29,18 @@ Defaults to \code{"pp"}.}
 
 \item{method}{Character string specifying the silhouette calculation method. Options are \code{"pac"} (Probability of Alternative Cluster) or \code{"medoid"}. Defaults to \code{"pac"}.}
 
-\item{average}{Character string specifying the type of average silhouette width calculation. Options are \code{"crisp"} (simple average) or \code{"fuzzy"} (weighted average based on membership differences). Defaults to \code{"crisp"}.}
+\item{average}{Character string specifying the method for computing the average silhouette width.
+Options are:
+\itemize{
+\item \code{"crisp"} – unweighted (simple) average.
+\item \code{"fuzzy"} – weighted average based on membership probability differences.
+\item \code{"median"} – median silhouette width across observations.
+}
+Defaults to \code{"crisp"}.}
 
 \item{a}{Numeric value controlling the fuzzifier or weight scaling in fuzzy silhouette averaging. Higher values increase the emphasis on strong membership differences. Must be positive. Defaults to \code{2}.}
+
+\item{sort}{Logical; if \code{TRUE}, sorts the output \code{widths} data frame by cluster and descending silhouette width. Defaults to \code{FALSE}.}
 
 \item{print.summary}{Logical; if \code{TRUE}, prints a summary table of average silhouette widths and sizes for each cluster. Defaults to \code{FALSE}.}
 
@@ -43,6 +53,7 @@ A data frame of class \code{"Silhouette"} containing cluster assignments, neares
 \describe{
 \item{proximity_type}{The proximity type used (\code{"similarity"} or \code{"dissimilarity"}).}
 \item{method}{The silhouette calculation method used (\code{"medoid"} or \code{"pac"}).}
+\item{average}{Character — the averaging method: \code{"crisp"}, \code{"fuzzy"}, or \code{"median"}.}
 }
 }
 \description{
@@ -52,6 +63,22 @@ Computes silhouette widths for soft clustering results by interpreting cluster m
 Although the silhouette method was originally developed for evaluating clustering structure within a single result, this implementation allows leveraging cluster membership probabilities from soft clustering methods to construct proximity-based silhouettes. These silhouette widths can be compared heuristically across different algorithms to assess clustering quality.
 
 See \doi{10.1080/23737484.2024.2408534} for more details.
+
+#' If \code{average = "crisp"}, the \strong{crisp silhouette index} is calculated as (\eqn{CS}) is:
+\deqn{
+  CS = \frac{1}{n} \sum_{i=1}^{n} S(x_i)
+}
+summarizing overall clustering quality.
+
+If \code{average = "fuzzy"} and \code{prob_matrix} is provided, denoted as \eqn{\Gamma = [\gamma_{ik}]_{n \times K}},
+with \eqn{\gamma_{ik}} representing the probability of observation \eqn{i} belonging to cluster \eqn{k},
+the \strong{fuzzy silhouette index} (\eqn{FS}) is calculated as:
+\deqn{
+  FS = \frac{\sum_{i=1}^{n}  w_i  S(x_i) }{\sum_{i=1}^{n}  w_i}
+}
+where \eqn{w_i = \sum_{i=1}^{n} \left( \gamma_{ik} - \max_{k' \neq k} \gamma_{ik'} \right)^{\alpha}} is \code{weight} and \eqn{\alpha} (the \code{a} argument) controls the emphasis on confident assignments.
+
+If \code{average = "median"} then median Silhouette is Calculated
 }
 \examples{
 \donttest{
@@ -76,8 +103,8 @@ if (requireNamespace("ppclust", quietly = TRUE)) {
 }
 # Compare average silhouette widths of fcm and fcm2
 if (requireNamespace("ppclust", quietly = TRUE)) {
-  cat("FCM average silhouette width:", sfcm$avg.width, "\n")
-  cat("FCM2 average silhouette width:", sfcm2$avg.width, "\n")
+  cat("FCM average silhouette width:", sfcm$avg.width, "\n",
+  "FCM2 average silhouette width:", sfcm2$avg.width, "\n")
 }
 }
 }
@@ -87,5 +114,5 @@ Raymaekers, J., & Rousseeuw, P. J. (2022). Silhouettes and quasi residual plots 
 Bhat Kapu, S., & Kiruthika. (2024). Some density-based silhouette diagnostics for soft clustering algorithms. Communications in Statistics: Case Studies, Data Analysis and Applications, 10(3-4), 221-238. \doi{10.1080/23737484.2024.2408534}
 }
 \seealso{
-\code{\link{Silhouette}},\code{\link{plotSilhouette}}
+\code{\link{Silhouette}}, \code{\link{dbSilhouette}}, \code{\link{cerSilhouette}}, \code{\link{getSilhouette}}, \code{\link{is.Silhouette}}, \code{\link{plotSilhouette}}
 }

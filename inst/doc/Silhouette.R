@@ -5,7 +5,7 @@ knitr::opts_chunk$set(
 )
 
 ## ----check-packages, echo=FALSE, message=FALSE, warning=FALSE-----------------
-required_packages <- c("proxy", "ppclust", "blockcluster", "cluster", "factoextra", "ggplot2")
+required_packages <- c("proxy", "ppclust", "blockcluster", "cluster", "factoextra", "ggplot2", "tidyr")
 
 missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
 
@@ -28,13 +28,14 @@ library(cluster)
 library(factoextra)
 library(blockcluster)
 library(ggplot2)
+library(drclust)
 set.seed(123)
 
 ## ----kmeans-------------------------------------------------------------------
 data(iris)
 km <- kmeans(iris[, -5], centers = 3)
 
-## ----crisp-silhouette1, fig.width=6, fig.height=4, fig.alt = "fig1.1"---------
+## ----crisp-silhouette1, fig.width=7, fig.height=4, fig.alt = "fig1.1"---------
 library(proxy)
 dist_matrix <- proxy::dist(iris[, -5], km$centers)
 sil <- Silhouette(dist_matrix)
@@ -42,7 +43,7 @@ head(sil)
 summary(sil)
 plot(sil)
 
-## ----crisp-silhouette2, fig.width=6, fig.height=4, fig.alt = "fig1.2"---------
+## ----crisp-silhouette2, fig.width=7, fig.height=4, fig.alt = "fig1.2"---------
 sil_pac <- Silhouette(dist_matrix, method = "pac", sort = TRUE)
 head(sil_pac)
 summary(sil_pac)
@@ -62,24 +63,25 @@ library(ppclust)
 data(iris)
 fm <- ppclust::fcm(x = iris[, -5], centers = 3)
 
-## ----crisp-silhouette4, fig.width=6, fig.height=4, fig.alt = "fig1.2"---------
+## ----crisp-silhouette4, fig.width=7, fig.height=4, fig.alt = "fig1.2"---------
 sil_fm <- Silhouette(fm$d)
 plot(sil_fm)
 
-## ----crisp-silhouette5, fig.width=6, fig.height=4, fig.alt = "fig1.3"---------
+## ----crisp-silhouette5, fig.width=7, fig.height=4, fig.alt = "fig1.3"---------
 sil_fcm <- Silhouette(prox_matrix = "d", clust_fun = fcm, x = iris[, -5], centers = 3)
 plot(sil_fcm)
 
-## ----fuzzy-silhouette4.1, fig.width=6, fig.height=4---------------------------
+## ----fuzzy-silhouette4.1, fig.width=7, fig.height=4---------------------------
 data(iris)
 fm1 <- ppclust::fcm(x = iris[, -5], centers = 3)
 
-## ----fuzzy-silhouette4, fig.width=6, fig.height=4, fig.alt = "fig1.6"---------
-sil_fm1 <- Silhouette(prox_matrix = fm1$d, prob_matrix = fm1$u)
+## ----fuzzy-silhouette4, fig.width=7, fig.height=4, fig.alt = "fig1.6"---------
+sil_fm1 <- Silhouette(prox_matrix = fm1$d, prob_matrix = fm1$u, average = "fuzzy")
 plot(sil_fm1)
 
-## ----fuzzy-silhouette5, fig.width=6, fig.height=4, fig.alt = "fig1.3"---------
-sil_fcm1 <- Silhouette(prox_matrix = "d", prob_matrix = "u", clust_fun = fcm, x = iris[, -5], centers = 3)
+## ----fuzzy-silhouette5, fig.width=7, fig.height=4, fig.alt = "fig1.3"---------
+library(ppclust)
+sil_fcm1 <- Silhouette(prox_matrix = "d", prob_matrix = "u", average = "fuzzy", clust_fun = fcm, x = iris[, -5], centers = 3)
 plot(sil_fcm1)
 
 ## ----fcm----------------------------------------------------------------------
@@ -91,7 +93,7 @@ fcm_result <- ppclust::fcm(iris[, 1:4], 3)
 # FCM2 clustering
 fcm2_result <- ppclust::fcm2(iris[, 1:4], 3)
 
-## ----softSilhouette, fig.width=6, fig.height=4, fig.alt = "fig2.1"------------
+## ----softSilhouette, fig.width=7, fig.height=4, fig.alt = "fig2.1"------------
 # Soft silhouette for FCM
 sil_fcm <- softSilhouette(prob_matrix = fcm_result$u)
 plot(sil_fcm)
@@ -100,31 +102,61 @@ plot(sil_fcm)
 sil_fcm2 <- softSilhouette(prob_matrix = fcm2_result$u)
 plot(sil_fcm2)
 
-## ----softSilhouette1, fig.width=6, fig.height=4, fig.alt = "fig2.2"-----------
+## ----softSilhouette1, fig.width=7, fig.height=4, fig.alt = "fig2.2"-----------
 sfcm <- summary(sil_fcm, print.summary = FALSE)
 sfcm2 <- summary(sil_fcm2, print.summary = FALSE)
 
-cat("FCM average silhouette width:", sfcm$avg.width, "\n")
-cat("FCM2 average silhouette width:", sfcm2$avg.width, "\n")
+cat("FCM average silhouette width:", sfcm$avg.width, "\n",
+    "FCM2 average silhouette width:", sfcm2$avg.width)
+
+
+## ----cer-db-silhouette, fig.width=7, fig.height=4, fig.alt = "fig2.3"---------
+# Certainty-based silhouette for FCM and FCM2
+  cer_fcm <- cerSilhouette(prob_matrix = fcm_result$u, print.summary = TRUE)
+  plot(cer_fcm)
+  
+  cer_fcm2 <- cerSilhouette(prob_matrix = fcm2_result$u, print.summary = TRUE)
+  plot(cer_fcm2)
+
+# Density-based silhouette for FCM and FCM2
+  db_fcm <- dbSilhouette(prob_matrix = fcm_result$u, print.summary = TRUE)
+  plot(db_fcm)
+  
+  db_fcm2 <- dbSilhouette(prob_matrix = fcm2_result$u, print.summary = TRUE)
+  plot(db_fcm2)
+
+## ----cer-db-silhouette-summary------------------------------------------------
+# Compare average silhouette widths across all methods
+  # Summary for FCM
+  cer_sfcm <- summary(cer_fcm, print.summary = FALSE)
+  db_sfcm <- summary(db_fcm, print.summary = FALSE)
+  
+  # Summary for FCM2
+  cer_sfcm2 <- summary(cer_fcm2, print.summary = FALSE)
+  db_sfcm2 <- summary(db_fcm2, print.summary = FALSE)
+  
+  # Print comparison
+  cat("FCM - Soft silhouette:", sfcm$avg.width, "\n",
+      "FCM - Certainty silhouette:", cer_sfcm$avg.width, "\n",
+      "FCM - Density-based silhouette:", db_sfcm$avg.width, 
+      "\n\n","FCM2 - Soft silhouette:", sfcm2$avg.width, 
+      "\n","FCM2 - Certainty silhouette:", cer_sfcm2$avg.width, 
+      "\n","FCM2 - Density-based silhouette:", db_sfcm2$avg.width, "\n")
 
 ## ----screeplot1---------------------------------------------------------------
 data(iris)
-avg_sil_width <- numeric(6)
+avg_sil_width <- rep(NA,7)
 for (k in 2:7) {
   sil_out <- Silhouette(
     prox_matrix = "d",
-    proximity_type = "dissimilarity",
-    prob_matrix = "u",
+    method = "pac",
     clust_fun = ppclust::fcm,
     x = iris[, 1:4],
-    centers = k,
-    print.summary = FALSE,
-    sort = TRUE
-  )
-  avg_sil_width[k - 1] <- summary(sil_out, print.summary = FALSE)$avg.width
+    centers = k)
+  avg_sil_width[k] <- summary(sil_out, print.summary = FALSE)$avg.width
 }
 
-## ----screeplot2, fig.width=6, fig.height=4, fig.alt = "fig3.1"----------------
+## ----screeplot2, fig.width=7, fig.height=4, fig.alt = "fig3.1"----------------
 plot(avg_sil_width,
   type = "o",
   ylab = "Overall Silhouette Width",
@@ -152,7 +184,7 @@ fanny_result <- fanny(iris[, 1:4], k = 3)
 plotSilhouette(fanny_result)
 
 ## ----plot2, fig.width=6, fig.height=4, fig.alt = "fig4.2"---------------------
-sil_base <- silhouette(pam_result)
+sil_base <- cluster::silhouette(pam_result)
 plotSilhouette(sil_base)
 
 ## ----plot3, fig.width=6, fig.height=4, fig.alt = "fig4.3"---------------------
@@ -162,6 +194,16 @@ plotSilhouette(eclust_result)
 
 hcut_result <- hcut(iris[, 1:4], k = 3)
 plotSilhouette(hcut_result)
+
+## ----plot3.1, fig.width=7, fig.height=6, fig.alt = "fig4.3.1"-----------------
+library(drclust)
+# Loading the numeric in matrix 
+iris_mat <- as.matrix(iris[,-5])
+#applying a clustering algorithm
+drclust_out <- dpcakm(iris_mat, 20, 3)
+#silhouette based on the data and the output of the clustering algorithm
+d <- silhouette(iris_mat, drclust_out)
+plotSilhouette(d$cl.silhouette)
 
 ## ----plot4, fig.width=6, fig.height=4, fig.alt = "fig4.4"---------------------
 data(iris)
@@ -176,6 +218,243 @@ plot(sil_fuzzy, summary.legend = FALSE, grayscale = TRUE)
 plotSilhouette(sil_fuzzy, grayscale = TRUE) # Use grayscale palette
 plotSilhouette(sil_fuzzy, summary.legend = TRUE) # Include size + avg silhouette in legend
 plotSilhouette(sil_fuzzy, label = TRUE) # Label bars with row index
+
+## ----custom1, fig.width=7, fig.height=4, fig.alt = "fig5.1"-------------------
+# Create a custom Silhouette object
+cluster_assignments <- c(1, 1, 2, 2, 3, 3)
+neighbor_clusters <- c(2, 2, 1, 1, 1, 1)
+silhouette_widths <- c(0.8, 0.7, 0.6, 0.9, 0.5, 0.4)
+weights <- c(0.9, 0.8, 0.7, 0.95, 0.6, 0.5)
+
+sil_custom <- getSilhouette(
+  cluster = cluster_assignments,
+  neighbor = neighbor_clusters,
+  sil_width = silhouette_widths,
+  weight = weights,
+  proximity_type = "similarity",
+  method = "pac",
+  average = "fuzzy"
+)
+# Validate the object
+is.Silhouette(sil_custom)               # Basic class check: TRUE
+is.Silhouette(sil_custom, strict = TRUE) # Strict structural validation: TRUE
+is.Silhouette(data.frame(a = 1:6))      # Non-Silhouette object: FALSE
+# Visualize the custom Silhouette object
+plotSilhouette(sil_custom, summary.legend = TRUE)
+
+## ----calSil1------------------------------------------------------------------
+library(ppclust)
+data(iris)
+
+# Compute all silhouette methods using FCM clustering
+summary_result <- calSilhouette(
+  prox_matrix = "d",
+  prob_matrix = "u",
+  proximity_type = "dissimilarity",
+  clust_fun = ppclust::fcm,
+  x = iris[, -5],
+  centers = 3,
+  print.summary = TRUE
+)
+
+# View the results
+head(summary_result)
+
+## ----calSil2------------------------------------------------------------------
+# Perform clustering first
+fcm_result <- ppclust::fcm(iris[, -5], centers = 3)
+
+# Compute all silhouette methods using the clustering output
+summary_direct <- calSilhouette(
+  prox_matrix = fcm_result$d,
+  prob_matrix = fcm_result$u,
+  proximity_type = "dissimilarity",
+  a = 2,
+  print.summary = TRUE
+)
+
+# Access specific results
+head(summary_direct)
+
+## ----calSil3------------------------------------------------------------------
+# Compare FCM and FCM2 algorithms
+fcm_summary <- calSilhouette(
+  prox_matrix = "d",
+  prob_matrix = "u",
+  proximity_type = "dissimilarity",
+  clust_fun = ppclust::fcm,
+  x = iris[, -5],
+  centers = 3,
+  print.summary = FALSE
+)
+
+fcm2_summary <- calSilhouette(
+  prox_matrix = "d",
+  prob_matrix = "u",
+  proximity_type = "dissimilarity",
+  clust_fun = ppclust::fcm2,
+  x = iris[, -5],
+  centers = 3,
+  print.summary = FALSE
+)
+
+# Create comparison data frame
+comparison <- data.frame(
+  Method = fcm_summary$Method,
+  FCM_Crisp = fcm_summary$Crisp,
+  FCM2_Crisp = fcm2_summary$Crisp,
+  FCM_Fuzzy = fcm_summary$Fuzzy,
+  FCM2_Fuzzy = fcm2_summary$Fuzzy,
+  stringsAsFactors = FALSE
+)
+
+print(comparison)
+
+## ----calSil4, fig.width=8, fig.height=5, fig.alt = "fig7.1"-------------------
+library(ggplot2)
+library(tidyr)
+
+# Reshape data for plotting
+comparison_long <- tidyr::pivot_longer(
+  comparison,
+  cols = -Method,
+  names_to = "Algorithm_Type",
+  values_to = "Silhouette_Width"
+)
+
+# Create grouped bar plot
+ggplot(comparison_long, aes(x = Method, y = Silhouette_Width, fill = Algorithm_Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    legend.position = "bottom"
+  ) +
+  labs(
+    title = "Comparison of Silhouette Methods: FCM vs FCM2",
+    x = "Silhouette Method",
+    y = "Average Silhouette Width",
+    fill = "Algorithm & Type"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40")
+
+## ----calSil5, fig.width=8, fig.height=5, fig.alt = "fig7.2"-------------------
+# Compute silhouette summaries for k = 2 to 6
+k_range <- 2:6
+results_list <- list()
+
+for (k in k_range) {
+  results_list[[as.character(k)]] <- calSilhouette(
+    prox_matrix = "d",
+    prob_matrix = "u",
+    proximity_type = "dissimilarity",
+    clust_fun = ppclust::fcm,
+    x = iris[, -5],
+    centers = k,
+    print.summary = FALSE
+  )
+}
+
+# Extract crisp pac method silhouette widths for comparison
+pac_widths <- sapply(results_list, function(x) x$Crisp[x$Method == "pac"])
+
+# Plot optimal k selection
+plot(k_range, pac_widths,
+  type = "o", pch = 19,
+  xlab = "Number of Clusters (k)",
+  ylab = "Average Silhouette Width (PAC method)",
+  main = "Optimal Cluster Selection using calSilhouette()",
+  col = "steelblue", lwd = 2,
+  ylim = c(min(pac_widths) * 0.95, max(pac_widths) * 1.05)
+)
+grid()
+abline(h = max(pac_widths), lty = 2, col = "red")
+text(k_range[which.max(pac_widths)], max(pac_widths), 
+     labels = paste("Optimal k =", k_range[which.max(pac_widths)]), 
+     pos = 3, col = "red")
+
+## ----calSil6------------------------------------------------------------------
+# Get all pac-based methods
+pac_methods <- summary_result[grep("pac", summary_result$Method), ]
+cat("PAC-based methods:\n")
+print(pac_methods, row.names = FALSE)
+
+# Get all medoid-based methods
+medoid_methods <- summary_result[grep("medoid", summary_result$Method), ]
+cat("\nMedoid-based methods:\n")
+print(medoid_methods, row.names = FALSE)
+
+# Get probability-based methods (cer, db)
+prob_methods <- summary_result[summary_result$Method %in% c("cer", "db"), ]
+cat("\nProbability-based methods (cer, db):\n")
+print(prob_methods, row.names = FALSE)
+
+# Compare crisp vs fuzzy vs median averaging
+cat("\n=== Best Methods by Averaging Type ===\n")
+cat("Best method by crisp averaging:", 
+    summary_result$Method[which.max(summary_result$Crisp)], 
+    "(", round(max(summary_result$Crisp, na.rm = TRUE), 4), ")\n")
+cat("Best method by fuzzy averaging:", 
+    summary_result$Method[which.max(summary_result$Fuzzy)], 
+    "(", round(max(summary_result$Fuzzy, na.rm = TRUE), 4), ")\n")
+cat("Best method by median averaging:", 
+    summary_result$Method[which.max(summary_result$Median)], 
+    "(", round(max(summary_result$Median, na.rm = TRUE), 4), ")\n")
+
+## ----calSil7------------------------------------------------------------------
+library(proxy)
+data(iris)
+
+# K-means clustering (crisp clustering)
+km <- kmeans(iris[, -5], centers = 3)
+
+# Compute distance matrix
+dist_matrix <- proxy::dist(iris[, -5], km$centers)
+
+# Compute only proximity-based silhouettes (medoid and pac)
+crisp_summary <- calSilhouette(
+  prox_matrix = dist_matrix,
+  proximity_type = "dissimilarity",
+  print.summary = TRUE
+)
+
+# View results (note: no Fuzzy column since prob_matrix not provided)
+print(crisp_summary)
+
+## ----calSil8, fig.width=8, fig.height=6, fig.alt = "fig7.3"-------------------
+library(ggplot2)
+library(tidyr)
+
+# Reshape data for heatmap
+heatmap_data <- tidyr::pivot_longer(
+  summary_result,
+  cols = c(Crisp, Fuzzy, Median),
+  names_to = "Average_Type",
+  values_to = "Silhouette_Width"
+)
+
+# Create heatmap
+ggplot(heatmap_data, aes(x = Average_Type, y = Method, fill = Silhouette_Width)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Silhouette_Width, 3)), color = "black", size = 3) +
+  scale_fill_gradient2(
+    low = "red", mid = "yellow", high = "green",
+    midpoint = median(heatmap_data$Silhouette_Width, na.rm = TRUE),
+    na.value = "gray90"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right"
+  ) +
+  labs(
+    title = "Silhouette Width Heatmap Across Methods and Averaging Types",
+    x = "Averaging Type",
+    y = "Silhouette Method",
+    fill = "Silhouette\nWidth"
+  )
 
 ## ----ext1---------------------------------------------------------------------
 library(blockcluster)

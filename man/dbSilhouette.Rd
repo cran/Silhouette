@@ -11,7 +11,9 @@ dbSilhouette(
   sort = FALSE,
   print.summary = FALSE,
   clust_fun = NULL,
-  ...
+  ...,
+  cluster = NULL,
+  clust_args = list()
 )
 }
 \arguments{
@@ -21,23 +23,34 @@ dbSilhouette(
 Options are:
 \itemize{
 \item \code{"crisp"} – unweighted (simple) average.
-\item \code{"fuzzy"} – weighted average based on membership probability differences.
+\item \code{"fuzzy"} – weighted average; the weight of an observation is the gap between its two largest memberships raised to the power \code{a}.
 \item \code{"median"} – median silhouette width across observations.
 }
 Defaults to \code{"median"}.}
 
-\item{a}{Numeric value controlling the fuzzifier or weight scaling in fuzzy silhouette averaging. Higher values increase the emphasis on strong membership differences. Must be positive. Defaults to \code{2}.}
+\item{a}{Non-negative number, the exponent \eqn{\alpha} of the weights in fuzzy silhouette averaging. Higher values increase the emphasis on strong membership differences; \code{a = 0} gives every observation the same weight, so the fuzzy average equals the crisp average. Defaults to \code{2}.}
 
 \item{sort}{Logical; if \code{TRUE}, sorts the output \code{widths} data frame by cluster and descending silhouette width. Defaults to \code{FALSE}.}
 
-\item{print.summary}{Logical; if \code{TRUE}, prints a summary table of average silhouette widths and sizes for each cluster. Defaults to \code{FALSE}.}
+\item{print.summary}{Logical; if \code{TRUE}, reports a summary table of average silhouette widths and sizes for each cluster through \code{\link{message}}. Defaults to \code{FALSE} for \code{Silhouette()} and \code{TRUE} for \code{summary()}.}
 
-\item{clust_fun}{Optional S3 or S4 function object or function as character string specifying a clustering function that produces the proximity matrix. For example, \code{\link[ppclust]{fcm}} or \code{"fcm"}. If provided, \code{prob_matrix} must be a string giving the name of the matrix component (e.g., "u"). Defaults to \code{NULL}.}
+\item{clust_fun}{Optional S3 or S4 function object or function as character string specifying a clustering function that produces the membership matrix. For example, \code{\link[ppclust]{fcm}} or \code{"fcm"}. If provided, \code{prob_matrix} must be a string giving the name of the matrix component (e.g., "u"). Defaults to \code{NULL}.}
 
 \item{...}{Additional arguments passed to \code{clust_fun}, such as \code{x, centers} for \code{\link[ppclust]{fcm}}.}
+
+\item{cluster}{Optional integer vector of length \eqn{n} giving the cluster of each
+observation as a column number of \code{prob_matrix}. If \code{NULL} (the default), each
+observation is assigned to the cluster with its largest membership (for \code{"pp"} and
+\code{"nlpp"}) or its largest density (for \code{"pd"}); see \emph{Cluster labels}. If
+\code{clust_fun} is provided, \code{cluster} may be the name of the label component of its
+output. Must be named in the call because it follows \code{...}.}
+
+\item{clust_args}{A list of further arguments for \code{clust_fun}; use it for arguments whose names could be partially matched to this function's own (for example \code{clust_args = list(m = 3)} for the fuzzifier of \code{\link[ppclust]{fcm}}). Defaults to \code{list()}.}
 }
 \value{
-A data frame of class \code{"Silhouette"} containing cluster assignments, nearest neighbor clusters, silhouette widths for each observation, and weights (for fuzzy clustering). The object includes the following attributes:
+A data frame of class \code{"Silhouette"} with one row per observation and columns
+\code{cluster}, \code{neighbor}, \code{weight} (only when \code{average = "fuzzy"}) and
+\code{sil_width}. The object includes the following attributes:
 \describe{
 \item{proximity_type}{The proximity type used i.e., \code{"similarity"}.}
 \item{method}{The silhouette calculation method used i.e., \code{"db"}.}
@@ -45,20 +58,59 @@ A data frame of class \code{"Silhouette"} containing cluster assignments, neares
 }
 }
 \description{
-Computes silhouette widths based on Menardi (2011) density-based method using log-ratios of posterior probabilities.
+Computes the density-based silhouette (DBS) of Menardi (2011), using log-ratios of
+posterior probabilities.
 }
 \details{
-Let the posterior probability matrix or cluster membership matrix as
-\deqn{\Gamma = [\gamma_{ik}]_{n \times K},}
+The DBS compares the largest membership with the second largest on the log scale, scaled
+by the largest such log ratio in the sample. Its numerator is that of the NLPPS of Bhat
+Kapu and Kiruthika (2024), with a different denominator. Following Menardi (2011), the
+median is the default summary, and the number of clusters is read from the local maxima
+of the average over \eqn{k}.
 
-The \strong{density-based silhouette width} for observation \eqn{i} is:
+Let the posterior probability matrix or cluster membership matrix be
+\eqn{\Gamma = [\gamma_{ik}]_{n \times K}}, let \eqn{c_i} be the cluster of observation
+\eqn{i} and \eqn{\nu_i} the cluster with its largest membership other than \eqn{c_i}.
+With the log ratio
+\deqn{R_i = \log \frac{\gamma_{ic_i}}{\gamma_{i\nu_i}},}
+the \strong{density-based silhouette width} is
 \deqn{
-\mathrm{DBS}_i =
-\frac{\log\left( \frac{\gamma_{ik}}{\max_{k' \neq k} \gamma_{ik'}} \right)}
-{\max_{j=1,\dots,n} \left| \log\left( \frac{\gamma_{jk}}{\max_{k' \neq k} \gamma_{jk'}} \right) \right|}
+\mathrm{DBS}_i = \frac{R_i}{\max_{j=1,\dots,n} |R_j|}.
+}
+With the default labels (largest membership) \eqn{R_i \ge 0}, so the widths lie in
+\eqn{[0, 1]} and the most confidently assigned observation has width 1. With labels
+supplied through \code{cluster}, \eqn{R_i} can be negative and the widths lie in
+\eqn{[-1, 1]}.
+
+Because of the scaling, the average width depends on how extreme the most confident
+observation is: a single observation with a very large log ratio shrinks every other
+width towards zero. Compare the average only across fits with similar extremes, and
+report it together with the mode-wise or cluster-wise summaries.
+}
+\section{Numerical safeguards}{
+
+The following rules keep the widths finite and meaningful:
+\itemize{
+\item \strong{Zero probabilities.} When the neighboring membership is exactly zero
+(for example, after a posterior probability underflows), \eqn{R_i = +\infty}. Such
+observations receive width 1 (and width -1 when the assigned membership is zero,
+which can happen only with supplied labels), and a warning reports how many there
+are. The remaining widths are scaled by the largest \emph{finite} \eqn{|R_j|}. (In
+version 0.9.6 and earlier, the infinite maximum turned every finite width into 0.)
+\item \strong{Equal memberships.} When the two memberships are equal, \eqn{R_i = 0}
+and the width is 0.
+\item \strong{Degenerate fits.} When the largest finite \eqn{|R_j|} is below
+\code{sqrt(.Machine$double.eps)} (about \eqn{1.5 \times 10^{-8}}), the memberships
+are numerically indistinguishable and scaling would only magnify rounding error.
+The finite widths are then set to 0 with a warning.
 }
 
-#' If \code{average = "crisp"}, the \strong{crisp silhouette index} is calculated as (\eqn{CS}) is:
+Ties are resolved in favor of the first column; see \code{\link{Silhouette}}.
+}
+
+\section{Averages}{
+
+If \code{average = "crisp"}, the \strong{crisp silhouette index} (\eqn{CS}) is the mean width:
 \deqn{
   CS = \frac{1}{n} \sum_{i=1}^{n} S(x_i)
 }
@@ -66,45 +118,56 @@ summarizing overall clustering quality.
 
 If \code{average = "fuzzy"} and \code{prob_matrix} is provided, denoted as \eqn{\Gamma = [\gamma_{ik}]_{n \times K}},
 with \eqn{\gamma_{ik}} representing the probability of observation \eqn{i} belonging to cluster \eqn{k},
-the \strong{fuzzy silhouette index} (\eqn{FS}) is calculated as:
+the \strong{fuzzy silhouette index} (\eqn{FS}) of Campello and Hruschka (2006) is:
 \deqn{
-  FS = \frac{\sum_{i=1}^{n}  w_i  S(x_i) }{\sum_{i=1}^{n}  w_i}
+  FS = \frac{\sum_{i=1}^{n}  w_i  S(x_i) }{\sum_{i=1}^{n}  w_i},
+  \qquad w_i = ( \gamma_{i(1)} - \gamma_{i(2)} )^{\alpha},
 }
-where \eqn{w_i = \sum_{i=1}^{n} \left( \gamma_{ik} - \max_{k' \neq k} \gamma_{ik'} \right)^{\alpha}} is \code{weight} and \eqn{\alpha} (the \code{a} argument) controls the emphasis on confident assignments.
+where \eqn{\gamma_{i(1)}} and \eqn{\gamma_{i(2)}} are the largest and second largest
+memberships of observation \eqn{i}, and \eqn{\alpha} (the \code{a} argument) controls the
+emphasis on confident assignments (\eqn{\alpha \ge 0}; \eqn{\alpha = 0} gives the crisp
+average). The weight \eqn{w_i} is stored in the \code{weight} column and does not depend on
+the cluster labels; it equals Equation (8) of Bhat Kapu and Kiruthika (2024) when each
+observation is assigned to its largest membership. If all weights are zero, the fuzzy
+average is undefined (\code{NaN}) and a warning is given.
 
-If \code{average = "median"} then median Silhouette is Calculated
+If \code{average = "median"}, the median width is reported.
+
+Missing widths are removed before averaging.
 }
+
 \examples{
+prob <- matrix(c(0.90, 0.10,
+                 0.60, 0.40,
+                 0.20, 0.80,
+                 0.45, 0.55), ncol = 2, byrow = TRUE)
+dbSilhouette(prob)
+
+# A zero neighboring probability gives width 1 and a warning
+prob0 <- rbind(prob, c(1, 0))
+dbSilhouette(prob0)
+
 \donttest{
-# Compare two soft clustering algorithms using dbSilhouette
-# Example: FCM vs. FCM2 on iris data, using average silhouette width as a criterion
+# Compare two soft clustering algorithms on the iris data
 data(iris)
 if (requireNamespace("ppclust", quietly = TRUE)) {
   fcm_result <- ppclust::fcm(iris[, 1:4], 3)
   out_fcm <- dbSilhouette(prob_matrix = fcm_result$u, print.summary = TRUE)
   plot(out_fcm)
-  sfcm <- summary(out_fcm, print.summary = FALSE)
-} else {
-  message("Install 'ppclust' to run this example: install.packages('ppclust')")
-}
-if (requireNamespace("ppclust", quietly = TRUE)) {
   fcm2_result <- ppclust::fcm2(iris[, 1:4], 3)
-  out_fcm2 <- dbSilhouette(prob_matrix = fcm2_result$u, print.summary = TRUE)
-  plot(out_fcm2)
-  sfcm2 <- summary(out_fcm2, print.summary = FALSE)
+  out_fcm2 <- dbSilhouette(prob_matrix = fcm2_result$u)
+  c(fcm = summary(out_fcm, print.summary = FALSE)$avg.width,
+    fcm2 = summary(out_fcm2, print.summary = FALSE)$avg.width)
 } else {
   message("Install 'ppclust' to run this example: install.packages('ppclust')")
-}
-# Compare average silhouette widths of fcm and fcm2
-if (requireNamespace("ppclust", quietly = TRUE)) {
-  cat("FCM average silhouette width:", sfcm$avg.width, "\n",
-  "FCM2 average silhouette width:", sfcm2$avg.width, "\n")
 }
 }
 }
 \references{
 Menardi, G. (2011). Density-based silhouette diagnostics for clustering methods. \emph{Statistics and Computing}, 21(3), 295--308. \doi{10.1007/s11222-010-9169-0}
+
+Bhat Kapu, S., & Kiruthika. (2024). Some density-based silhouette diagnostics for soft clustering algorithms. Communications in Statistics: Case Studies, Data Analysis and Applications, 10(3-4), 221-238. \doi{10.1080/23737484.2024.2408534}
 }
 \seealso{
-\code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link{cerSilhouette}}, \code{\link{getSilhouette}}, \code{\link{is.Silhouette}}, \code{\link{plotSilhouette}}
+\code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link{cerSilhouette}}, \code{\link{calSilhouette}}, \code{\link{getSilhouette}}, \code{\link{is.Silhouette}}, \code{\link{plotSilhouette}}
 }

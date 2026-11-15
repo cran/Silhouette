@@ -370,3 +370,21 @@ test_that("is.Silhouette() handles edge cases gracefully", {
   )
   expect_true(is.Silhouette(na_sil, strict = TRUE))
 })
+
+test_that("is.Silhouette() handles errors by returning FALSE", {
+  # Define custom S3 class and method to trigger error on $
+  `$.error_class` <- function(x, name) {
+    stop("Forced error on member access")
+  }
+  registerS3method("$", "error_class", `$.error_class`)
+  
+  # Build a structure that passes the data.frame check but errors on $
+  err_obj <- data.frame(cluster = 1, neighbor = 2, sil_width = 0.5)
+  class(err_obj) <- c("error_class", class(err_obj), "Silhouette")
+  attr(err_obj, "proximity_type") <- "similarity"
+  attr(err_obj, "method") <- "medoid"
+  attr(err_obj, "average") <- "crisp"
+  
+  # This should trigger the tryCatch error block in is.Silhouette
+  expect_false(is.Silhouette(err_obj, strict = TRUE))
+})

@@ -27,11 +27,11 @@ to be used for the horizontal reference line indicating the average
 silhouette width. Accepts standard ggplot2 linetype values, such as:
 \itemize{
 \item Character: \code{"solid"}, \code{"dashed"}, \code{"dotted"}, \code{"dotdash"}, \code{"longdash"}, \code{"twodash"}.
-\item Numeric: integers from 0 to 6 corresponding to ggplot2 line patterns.
+\item Numeric: a single integer from 0 to 6 corresponding to ggplot2 line patterns.
 }
 Defaults to \code{"dashed"}.}
 
-\item{...}{Additional arguments passed to \code{\link[ggpubr]{ggpar}} for customizing the plot (e.g., \code{palette}, \code{legend}, \code{xlab}, \code{ylab}, \code{subtitle}, \code{title}).}
+\item{...}{Additional arguments passed to \code{\link[ggpubr]{ggpar}} for customizing the plot (e.g., \code{legend}, \code{xlab}, \code{ylab}, \code{subtitle}, \code{title}). A \code{palette} (a vector of colors or a palette name accepted by \code{\link[ggpubr]{get_palette}}) colors the clusters and keeps the summary legend; it is ignored when \code{grayscale = TRUE}.}
 }
 \value{
 A \code{ggplot2} object representing the Silhouette plot.
@@ -42,7 +42,7 @@ Creates a silhouette plot for visualizing the silhouette widths of clustering re
 \details{
 The Silhouette plot displays the silhouette width (\code{sil_width}) for each observation, grouped by cluster, with bars sorted by cluster and descending silhouette width. The \code{summary.legend} option adds cluster sizes and average silhouette widths to the legend.
 
-This function replica of S3 method for objects of class \code{"Silhouette"}, typically produced by the \code{\link{Silhouette}}, \code{\link{softSilhouette}}, , \code{\link{dbSilhouette}} or , \code{\link{cerSilhouette}} functions in this package. It also supports objects of the following classes, with silhouette information extracted from their respective component:
+This function is the S3 \code{plot} method for objects of class \code{"Silhouette"}, typically produced by the \code{\link{Silhouette}}, \code{\link{softSilhouette}}, \code{\link{dbSilhouette}} or \code{\link{cerSilhouette}} functions in this package. It also supports objects of the following classes, with silhouette information extracted from their respective component:
 \itemize{
 \item \code{"eclust"}: Produced by \code{\link[factoextra]{eclust}} from the \pkg{factoextra} package.
 \item \code{"hcut"}: Produced by \code{\link[factoextra]{hcut}} from the \pkg{factoextra} package.
@@ -52,6 +52,8 @@ This function replica of S3 method for objects of class \code{"Silhouette"}, typ
 \item \code{"silhouette"}: Produced by \code{\link[cluster]{silhouette}} from the \pkg{cluster} package or \code{\link[drclust]{silhouette}} from the \pkg{drclust} package.
 }
 For these classes (\code{"eclust"}, \code{"hcut"}, \code{"pam"}, \code{"clara"}, \code{"fanny"}, \code{"silhouette"}), users should explicitly call \code{plotSilhouette()} (e.g., \code{plotSilhouette(pam_result)}) to ensure the correct method is used, as the generic \code{plot()} may not dispatch to this function for these objects.
+
+The design of the plot follows \code{\link[factoextra]{fviz_silhouette}} in the \pkg{factoextra} package (Kassambara and Mundt, 2020), extended to the \code{"Silhouette"} class, fuzzy and median averages, and grayscale output.
 }
 \examples{
 \donttest{
@@ -60,12 +62,12 @@ data(iris)
 # Crisp Silhouette with k-means
 out <- kmeans(iris[, -5], 3)
 if (requireNamespace("proxy", quietly = TRUE)) {
-  library(proxy)
-  dist <- dist(iris[, -5], out$centers)
-  plot(Silhouette(dist))
+  d_km <- proxy::dist(iris[, -5], out$centers)
+  plot(Silhouette(d_km))
+  plot(Silhouette(d_km), palette = "jco")
 }
 
-#' # Fuzzy Silhouette with ppclust::fcm
+# Fuzzy Silhouette with ppclust::fcm
 if (requireNamespace("ppclust", quietly = TRUE)) {
   library(ppclust)
   out_fuzzy <- Silhouette(
@@ -120,17 +122,19 @@ if (requireNamespace("factoextra", quietly = TRUE)) {
   plotSilhouette(hcut_result)
 }
 
-# Silhouette plot for hcut clustering
+# Silhouette plot for a drclust partition (3 clusters, 2 components)
 if (requireNamespace("drclust", quietly = TRUE)) {
   library(drclust)
   iris_mat <- as.matrix(iris[,-5])
-  drclust_out <- dpcakm(iris_mat, 20, 3)
+  drclust_out <- dpcakm(iris_mat, 3, 2)
   d <- silhouette(iris_mat, drclust_out)
   plotSilhouette(d$cl.silhouette)
 }
 }
 }
 \references{
+Kassambara, A., & Mundt, F. (2020). factoextra: Extract and Visualize the Results of Multivariate Data Analyses. R package version 1.0.7. \url{https://CRAN.R-project.org/package=factoextra}
+
 Rousseeuw, P. J. (1987). Silhouettes: A graphical aid to the interpretation and validation of cluster analysis. \emph{Journal of Computational and Applied Mathematics}, 20, 53--65. \doi{10.1016/0377-0427(87)90125-7}
 }
 \seealso{

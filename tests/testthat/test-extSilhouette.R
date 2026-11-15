@@ -1,6 +1,6 @@
 library(testthat)
 library(Silhouette)
-library(ppclust)
+skip_if_not_installed("ppclust")
 
 set.seed(123) # Global seed for reproducibility
 
@@ -47,13 +47,6 @@ test_that("extSilhouette() errors with non-Silhouette objects", {
   expect_error(extSilhouette(list(1:3, 4:6)), "class 'Silhouette'")
 })
 
-
-# test_that("extSilhouette() errors with zero observations", {
-#   # Create empty Silhouette objects
-#   empty_sil <- structure(data.frame(), class = c("Silhouette", "data.frame"))
-#   expect_error(extSilhouette(list(empty_sil, empty_sil)), "No observations found")
-# })
-
 test_that("extSilhouette() errors with mismatched dim_names length", {
   data(iris)
   fcm_out1 <- ppclust::fcm(iris[, -5], centers = 3)
@@ -68,18 +61,57 @@ test_that("extSilhouette() errors with mismatched dim_names length", {
   )
 })
 
+test_that("extSilhouette() errors with non-finite average silhouette widths", {
+  # Create a Silhouette object and then modify it to have NaN average width
+  na_sil <- getSilhouette(
+    cluster = c(1, 1),
+    neighbor = c(2, 2),
+    sil_width = c(0.5, 0.5),
+    proximity_type = "dissimilarity",
+    method = "medoid",
+    average = "crisp"
+  )
+  na_sil$sil_width <- c(NaN, NaN)
+  expect_error(
+    extSilhouette(list(na_sil)),
+    "non-finite average silhouette widths"
+  )
+})
+
+test_that("extSilhouette() errors with empty or invalid input", {
+  empty <- getSilhouette(cluster = integer(0), neighbor = integer(0), sil_width = numeric(0))
+  one <- getSilhouette(cluster = c(1, 2), neighbor = c(2, 1), sil_width = c(0.4, 0.6))
+  expect_error(extSilhouette(list(empty)), "at least one observation")
+  expect_error(extSilhouette(list(one, empty)), "at least one observation")
+  expect_error(extSilhouette(list()), "non-empty list")
+  expect_error(extSilhouette("not a list"), "non-empty list")
+})
+
+test_that("extSilhouette() works with print.summary = TRUE", {
+  data(iris)
+  fcm_out1 <- ppclust::fcm(iris[, -5], centers = 3)
+  fcm_out2 <- ppclust::fcm(iris[, -5], centers = 2)
+  sil1 <- softSilhouette(prob_matrix = fcm_out1$u, print.summary = FALSE)
+  sil2 <- softSilhouette(prob_matrix = fcm_out2$u, print.summary = FALSE)
+  
+  # The summary is reported as a message; printing uses the print method
+  expect_message(extSilhouette(list(sil1, sil2), print.summary = TRUE), "Extended silhouette")
+  output <- capture.output(print(extSilhouette(list(sil1, sil2))))
+  expect_true(any(grepl("Extended silhouette", output)))
+})
+
 ## 3. Edge case tests
-# test_that("extSilhouette() works with single Silhouette object", {
-#   data(iris)
-#   fcm_out <- ppclust::fcm(iris[, -5], centers = 3)
-#   sil <- softSilhouette(prob_matrix = fcm_out$u, print.summary = FALSE)
-#
-#   result <- extSilhouette(list(sil), print.summary = FALSE)
-#
-#   expect_s3_class(result, "extSilhouette")
-#   expect_equal(nrow(result$dim_table), 1)
-#   expect_equal(result$ext_sil_width, summary(sil, print.summary = FALSE)$avg.width)
-# })
+test_that("extSilhouette() works with single Silhouette object", {
+  data(iris)
+  fcm_out <- ppclust::fcm(iris[, -5], centers = 3)
+  sil <- softSilhouette(prob_matrix = fcm_out$u, print.summary = FALSE)
+
+  result <- extSilhouette(list(sil), print.summary = FALSE)
+
+  expect_s3_class(result, "extSilhouette")
+  expect_equal(nrow(result$dim_table), 1)
+  expect_equal(result$ext_sil_width, summary(sil, print.summary = FALSE)$avg.width)
+})
 
 test_that("extSilhouette() works with three Silhouette objects", {
   data(iris)
@@ -112,4 +144,14 @@ test_that("extSilhouette() sets correct structure", {
   expect_true(is.numeric(result$ext_sil_width))
   expect_true(is.data.frame(result$dim_table))
   expect_true(all(c("dimension", "n_obs", "avg_sil_width") %in% colnames(result$dim_table)))
+})
+
+
+test_that("extSilhouette() warns when the modes are on different scales", {
+  a <- getSilhouette(cluster = c(1, 2), neighbor = c(2, 1), sil_width = c(0.4, 0.6),
+                     method = "medoid")
+  b <- getSilhouette(cluster = c(1, 2), neighbor = c(2, 1), sil_width = c(0.2, 0.3),
+                     method = "pac")
+  expect_warning(extSilhouette(list(a, b)), "different scales")
+  expect_silent(extSilhouette(list(a, a)))
 })
